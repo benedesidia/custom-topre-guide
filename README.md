@@ -1,35 +1,35 @@
 
-This is an incomplete guide for building a custom Topre keyboard: specifically
-the PCB, plate, and firmware. It is an accumulation of information gained
-through these projects:
-[designing a custom Topre board](https://deskthority.net/workshop-f7/designing-a-custom-topre-board-t11734.html),
-[Split HHKB - Realforce/TypeHeaven mod](https://deskthority.net/workshop-f7/another-custom-split-hand-topre-board-need-your-input-t14769.html).
+これは、東プレのカスタムキーボードを作るための不完全なガイドであり、具体的には
+PCB、プレート、ファームウェアを紹介しています。これらのプロジェクトを通して得られた情報
+の蓄積です。
+[カスタム東プレボードのデザイン](https://deskthority.net/workshop-f7/designing-a-custom-topre-board-t11734.html),
+[分割HHKB - Realforce/TypeHeaven mod](https://deskthority.net/workshop-f7/another-custom-split-hand-topre-board-need-your-input-t14769.html).
 
-If anything is unclear or needs adding, let me know.
+不明な点や追加すべき点があれば教えてください。
 
-Thanks to [hasu's research](https://github.com/tmk/tmk_keyboard/tree/master/keyboard/hhkb/doc)
-for starting this all off.
+始まりのきっかけを作ってくれた [hasu's research](https://github.com/tmk/tmk_keyboard/tree/master/keyboard/hhkb/doc)
+に感謝します。
 
-**Table of contents**
+**目次**
 
-1. [Circuitry](#circuitry)
-    1. [Basic schematic](#basic-schematic)
-    2. [Drain pin](#drain-pin)
-    3. [Practical considerations](#practical-considerations)
-        1. [Parasitic capacitance](#parasitic-capacitance)
-        2. [Other notes](#other-notes)
-    4. [KiCad files](#kicad-files)
-2. [Hardware (case/plate)](#hardware-caseplate)
-    1. [Hole sizes](#hole-sizes)
-    2. [Warning about Realforce](#warning-about-realforce)
-3. [Firmware](#firmware)
-    1. [Basic read procedure](#basic-read-procedure)
-    2. [Normalisation](#normalisation)
-    3. [Calibration](#calibration)
-        1. [Overview](#overview)
-        2. [Calibration procedure](#calibration-procedure)
-        3. [A warning](#a-warning)
-    4. [Handling the depths](#handling-the-depths)
+1. [回路図](#circuitry)
+    1. [基本回路図](#basic-schematic)
+    2. [ドレインピン](#drain-pin)
+    3. [実用上の注意点](#practical-considerations)
+        1. [寄生容量](#parasitic-capacitance)
+        2. [その他の注意事項](#other-notes)
+    4. [KiCad ファイル](#kicad-files)
+2. [ハードウェア (ケース/プレート)](#hardware-caseplate)
+    1. [穴のサイズ](#hole-sizes)
+    2. [Realforceに関する注意事項](#warning-about-realforce)
+3. [ファームウェア](#firmware)
+    1. [基本的な読み取り方法](#basic-read-procedure)
+    2. [標準化](#normalisation)
+    3. [キャリブレーション](#calibration)
+        1. [概要](#overview)
+        2. [キャリブレーションの手順](#calibration-procedure)
+        3. [警告](#a-warning)
+    4. [深さの処理](#handling-the-depths)
         1. [Digital conversion](#digital-conversion)
         2. [Analog](#analog)
     5. [Example](#example)
@@ -271,27 +271,27 @@ uint8_t normalise(strobe, read, uint8_t value):
     return (uint8_t) (numerator / denominator);
 ```
 
-## Calibration
+## キャリブレーション
 
-### Overview
+### 概要
 
-Repeated readings from the ADC for a single key might look something like this:
+1つのキーに対するADCからの繰り返しの読み取りは、次のようになります。
 
 ![ADC Plot](images/adcplot.png "ADC Plot")
 
-This shows a full key press and release as the ADC reading crosses above the
-actuation depth, and later below the release depth. We are interested in
-finding the average value when a key is unpressed, and the average value when a
-key is pressed, so that we can normalise values easily. The values HighMax,
-LowMax, and LowMin which are marked on the plot are easily measurable (see
-[calibration procedure](#calibration-procedure)) and will
-allow us to calculate the averages we need. We take the noise to be
+これは、ADCの測定値が作動深さの上で交差し、後にリリース深さの下で交差することで、
+完全なキーのプレスとリリースを示している。
+キーが押されていないときの平均値と、キーが押されたときの平均値を求めることで、
+値を簡単に正規化することができます。
+プロットに記されているHighMax、LowMax、LowMinの値は簡単に測定でき
+（[calibration procedure](#calibration-procedure)を参照）、
+必要な平均値を算出することができます。我々は、ノイズを
 
 ```
 noise = lowMax - lowMin
 ```
 
-and the signal to noise ratio to be
+となり、S/N比は
 
 ```
        highMax - lowMax
@@ -299,11 +299,11 @@ SNR = ------------------
              noise
 ```
 
-This can be a convenient read on how good a key is. Generally we are looking
-for at least SNR > 10, I've seen most values come in between 20 and 30 for the
-above design.
+これは、キーがどの程度優れているかを読み取るのに便利です。
+一般的には、少なくともSNR>10を求めていますが、上記のデザインでは20〜30の間に
+収まることが多いようです。
 
-The values lowAvg and highAvg are just
+lowAvgとhighAvgの値は単なる
 
 ```
           lowMax + lowMin
@@ -316,47 +316,47 @@ highAvg = highMax - -------
                        2
 ```
 
-These should be stored in EEPROM for the normalisation routine.
+これらは正規化ルーチンのためにEEPROMに保存する必要があります。
 
-### Calibration procedure
+### キャリブレーションの手順 
 
-First we determine the values lowMax and lowMin. This is simple: just leave the
-keyboard untouched while scanning the matrix for a short period of time (a few
-seconds should do). For each key, keep a log on the highest and lowest
-measurements, this will give you lowMax and lowMin respectively.
+まず、lowMaxとlowMinの値を決定します。これは簡単です。
+マトリックスをスキャンしている間、キーボードに手を触れずにしばらく放置します
+（数秒で十分です）。
+各キーについて、最高と最低の測定値を記録し、これがそれぞれlowMaxとlowMinになります。
 
-Finding highMax can be done by scanning the matrix while the user presses each
-key in turn, keeping track of the highest measurement.
+highMaxを見つけるには、ユーザーが各キーを順番に押している間にマトリックスをスキャンして、
+最高の測定値を記録します。
 
-That's enough for a basic calibration routine, and I have found that is all
-that is required for stable measurements. To improve upon this, you might
-introduce continual recalibration via a more advanced signal processing method.
+基本的な校正ルーチンとしてはこれで十分であり、安定した測定を行うためにはこれだけで
+十分であることがわかりました。
+これを改善するには、より高度な信号処理方法による継続的な再校正を導入するとよいでしょう。
 
-### A warning
+### 警告
 
-It is useful to have some sort of escape route from the main key detection
-routine (for example a digital button which interrupts sending keypresses to
-the host). When we are scanning the matrix at 1000Hz and you mess something up,
-for example your calibration values are wrong and you are normalising sane
-input values to 0 or 255 randomly, you could end up sending hundreds of
-keypresses per second to the host mistakenly, and if your only method of
-interrupting is via your serial connection (for example through `screen`), you
-will have a bad time.
+メインのキー検出ルーチンからのある種の逃げ道があると便利です
+（例えば、キープレスをホストに送るのを中断するデジタルボタンなど）。
+マトリックスを1000Hzでスキャンしているときに、何かを間違えてしまった場合、
+例えばキャリブレーションの値が間違っていて、正気の入力値をランダムに0や255に
+正規化してしまった場合、誤って毎秒数百回のキープレスをホストに送信してしまう可能性があります。
+また、シリアル接続を介して（例えば`screen`を介して）中断する方法しかない場合、
+ひどい目に遭うでしょう。
 
-## Handling the depths
+## 深さの処理
 
-Now we know how to collect the normalised depth of each key, we must do
-something with it.
+各キーの正規化された深さを収集する方法がわかったので、
+それを使って何かをしなければなりません。
 
-### Digital conversion
+### デジタル変換
 
-The most basic method of converting a normalised key depth to a digital value
-is to check if a key is deeper than the desired actuation point. This
-won't work very well, and will spam the host with keypresses thanks to noisy
-readings. We must introduce hysteresis in the measurement of the key depth, we
-do this by storing key press state as well as depth.
+正規化されたキーの深さをデジタル値に変換する最も基本的な方法は、
+キーが目的の作動ポイントよりも深いかどうかをチェックすることです。
+これではあまりうまくいかず、ノイズの多い測定値のおかげでホストにキープレスのスパムを
+与えてしまいます。
+キーの深さの測定にヒステリシスを導入する必要があり、深さと同様にキープレスの状態を
+保存することでこれを行います。
 
-A simple procedure for a single key is as follows:
+1つのキーに対する簡単な手順は以下の通りです。
 
 ```
 if (not pressed and depth > actuation depth):
@@ -367,28 +367,28 @@ else if (pressed and depth < release depth):
     send key release signal
 ```
 
-The actuation depth should be chosen somewhere around the middle. Don't set it
-too close to 0 or 255 or you risk missing presses or having false presses
-thanks to noisy readings. The calibration procedure should determine the noise
-levels, and you can set a buffer value accordingly (use a few times the
-measured noise value for safety). As a fallback, I find that giving a buffer of
-around 30 works nicely for the range 0-255. The release depth should be the
-actuation depth minus this buffer value.
+アクチュエーションの深さは、真ん中あたりを選ぶとよいでしょう。
+あまりにも0や255に近づけすぎると、ノイズのある測定値のためにプレスを逃したり、
+誤ったプレスをしたりする危険性がありますのでご注意ください。
+キャリブレーションの手順でノイズレベルを決定し、それに応じてバッファ値を設定することができます
+（安全のために測定されたノイズ値の数倍の値を使用してください）。
+予備的には、0～255の範囲で30程度のバッファを設定するとうまくいくと思います。
+リリースの深さは、作動の深さからこのバッファ値を引いたものになります。
 
-### Analog
+### アナログ 
 
-Theoretically you could pipe the depth directly to an axis, be it a controller
-axis or something more interesting like analog mouse keys. Noisy readings mean
-you probably need to introduce a deadzone.
+理論的には、深度を軸に直接パイプで送ることができます。
+コントローラの軸でも、アナログマウスのキーのようなもっと面白いものでも構いません。
+しかし、ノイズの多い測定値の場合、デッドゾーンを設ける必要があります。
 
-With split keyboards it is important to share the depth information over
-the connection, instead of just sending keypresses digitally. This is so the
-master can handle analog commands on the slave.
+スプリットキーボードの場合、キープレスだけをデジタルで送るのではなく、
+接続を通じて深度情報を共有することが重要です。
+これは、マスターがスレーブのアナログコマンドを処理できるようにするためです。
 
-## Example
+## 例
 
-See [my fork of Kiibohd](https://github.com/tomsmalley/controller),
-specifically Scan/SplitHHKB.
-Warning: it is not complete and basically is broken, it crashes after a short
-time. The Topre part works fine though, it's my hacked together interconnect
-solution that is the problem.
+[Kiibohdの私のフォーク](https://github.com/tomsmalley/controller)、
+特にScan/SplitHHKBを参照してください。
+Warning: これは完全なものではなく、基本的には壊れていて、しばらくするとクラッシュします。
+Topreの部分は問題なく動作していますが、問題なのは私がハックしたインターコネクトの
+ソリューションです。
