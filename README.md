@@ -35,69 +35,65 @@ PCB、プレート、ファームウェアを紹介しています。これら�
     5. [Example](#example)
 
 
-# Circuitry
+# 回路図
 
-## Basic schematic
+## 基本回路図
 
-The method I use to sense key depression is rather simple. In tests that I
-have done it works well provided some calibration is performed in the firmware
-to normalise the readings.
+私がキーの押し下げを検知するために使用している方法は、とてもシンプルです。
+私が行ったテストでは、ファームウェアでキャリブレーションを行って測定値を正規化することで、
+うまく機能しました。
 
-The matrix crossing points of a Topre keyboard are essentially variable
-capacitors which connect a "strobe" line to a "read" line. The strobe and the
-read lines form the electrodes directly on the PCB, and the conical spring
-under the dome couples them together, creating a variable capacitor with the
-range 0 ~ 6 pF (roughly). The strobe lines are just digital signals from a
-digital out pin of the microcontroller. The read lines are dealt with in the
-following schematic:
+東プレのキーボードのマトリックスクロスポイントは、基本的に
+「ストロボ」ラインと「リード」ラインをつなぐ可変コンデンサーです。
+ストロボラインとリードラインはPCB上に直接電極を形成し、
+ドームの下にある円錐形のスプリングがそれらを結合して、0〜6pF（大体）の範囲の
+可変コンデンサーを作り出しています。
+ストロボラインは、マイコンのデジタル出力端子からのデジタル信号です。
+読み取り線は、以下の回路図で扱われています。
 
-![Schematic](images/schematic.png "Basic schematic")
+![Schematic](images/schematic.png "基本回路図")
 
-Each read line is pulled to ground with an individual 22k resistor, and fed
-into an analog multiplexer. After selecting a read line on the multiplexer, the
-microcontroller strobes a column and a small voltage pulse can be seen on the
-selected read line, larger pulses correspond to greater key depression.
+各読み取りラインは，個別の22k抵抗でグランドにプルされ、アナログマルチプレクサに供給されます。
+マルチプレクサで読み取りラインを選択した後、マイクロコントローラが列をストローブすると、
+選択された読み取りラインに小さな電圧パルスが現れ、パルスが大きいほどキーの押し下げが
+大きくなります。
 
-The selected read line is connected to the capacitor C1, which causes the read
-line to behave like a simple RC decay circuit. The value can be chosen given
-the following formula:
+選択されたリードラインは、コンデンサC1に接続されており、これによりリードラインは単純なRC減衰回路のように動作します。
+その値は、次の式を与えて選択することができます。
 
 ```
-                                       Capacitance of key we are sensing
-Peak output voltage = Input voltage * -----------------------------------
-                                             Total row capacitance
+                            センシングしているキーの静電容量
+ピーク出力電圧 = 入力電圧 * -----------------------------------
+                                  全行のキャパシタンス
 ```
 
-Here the input voltage is `Vdd`. The total row capacitance (to ground) consists
-of C1 plus the capacitance of all the keys in the row. As such it is clear that
-choosing a large value for C1 (compared to key capacitance) is important so
-that our reading is not significantly altered due to other keys on the row
-being depressed. We can't just make C1 enormous though, because it drops the
-peak output voltage which ultimately contributes to a higher noise level. I
-found 1 nF to be a good value.
+ここでは，入力電圧は `Vdd` です。全列の静電容量（対地）は、C1とその列のすべてのキーの
+静電容量で構成されています。そのため、C1を（キーの静電容量に比べて）大きな値にすることは、
+行の他のキーが押されても読み値が大きく変化しないようにするために重要であることは明らかです。
 
-Ignoring the "drain pin" for now, the read line passes through a current
-limiting resistor into a non inverting amplifier. The purpose of this is to
-provide a clean signal boost back into the range of 0 - 3.3V. The gain is given
-by `1 + R2 / R4` which in this case is around 200. It also serves to protect
-the microcontroller from negative voltages which can happen when the strobe
-line returns to ground. The output of the amplifier should connect to an ADC
-pin of the microcontroller.
+しかし、単にC1を大きくするだけでは、ピーク出力電圧が下がり、結果的にノイズレベルが
+高くなってしまいます。私は1nFが適当だと思います。
 
-## Drain pin
+ドレイン端子は無視して、リードラインは電流制限抵抗を経て、非反転アンプに入ります。
+このアンプの目的は、きれいな信号を0〜3.3Vの範囲に戻すことです。ゲインは「1 + R2 / R4」で
+与えられ、ここでは約200となっています。
 
-With the selected read line forming an RC circuit we can see that the time for
-it to relax to ground is simply governed by `5 * RC time constant`. The time
-constant is just `R * C`, which in our case gives a total relax time of
-`5 * 22k Ohm * 1 nF ~ 100 us`. Bearing in mind that we must wait for the matrix
-to relax to ground before reading the next key, this translates to taking 100
-us per key of the keyboard - giving us a polling rate less than 1000 Hz for
-keyboards with more than 10 keys. In order to fix this, we just connect the
-read line to the pin of the microcontroller through a current limiting 1k
-resistor R1. This pin should be floating during the strobe and read process,
-but after we have captured the reading in the ADC (takes around 5 us)
-it can be grounded, reducing the resistance R according to the parallel
-resistor formula:
+また、ストロボラインがグランドに戻ったときに発生する負の電圧からマイクロコントローラーを
+保護する役割もあります。アンプの出力は、マイクロコントローラのADC端子に接続します。
+
+## ドレインピン
+
+選択されたリードラインがRC回路を形成している場合、グランドにリラックスするまでの時間は、
+単純に`5 * RC時定数`に支配されることがわかります。
+この時定数は単に`R * C`であり、この例ではリラックスタイムの合計は
+`5 * 22k Ohm * 1 nF ~ 100 us`となります。
+次のキーを読み出す前にマトリックスがリラックスしてグランドになるのを待たなければならないことを
+考慮すると、これはキーボードのキー1つにつき100秒かかることになり、10キー以上のキーボードの
+場合、ポーリングレートは1000Hz以下になります。この問題を解決するには、電流制限用の1k抵抗R1を
+介して、読み取りラインをマイクロコントローラのピンに接続します。
+このピンは、ストローブと読み取りプロセスの間はフローティングにしておきますが、
+読み取り値をADCに取り込んだ後（約5秒かかります）は接地して、並列抵抗の公式に従って抵抗Rを
+小さくします。
 
 ```
   1     1       1
